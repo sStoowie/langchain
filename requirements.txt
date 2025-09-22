@@ -1,0 +1,19 @@
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# LangChain + OpenAI integration
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.3.0
+openai>=1.0.0
+
+# Env config
+python-dotenv>=1.0.0
+
+# Playwright for test execution
+playwright>=1.55.0
+
+# Optional utils
+requests>=2.32.0
+tenacity>=9.0.0
