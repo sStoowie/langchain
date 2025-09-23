@@ -5,7 +5,7 @@ export default defineConfig({
   timeout: 30_000,
   reporter: 'dot',
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:5174',
+    baseURL: process.env.BASE_URL || 'http://localhost:5173',
     headless: true,
     trace: 'off',
   },
