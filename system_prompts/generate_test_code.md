@@ -8,7 +8,17 @@
 - ห้ามเดา selector ใหม่
 - ตอบกลับใน code block เดียวเท่านั้น
 - ใช้รูปแบบ ```ts ... ```
-- ตรวจสอบเฉพาะสิ่งจำเป็น เช่น input → visible, placeholder | button → visible, aria-label | class → ใช้ regex
+- ตรวจสอบเฉพาะสิ่งจำเป็น เช่น input → visible, placeholder | button → visible, aria-label | 
+
+
+
+
+# แนวทางการเขียน testcase ที่ถูกต้อง
+
+
+
+
+class → ใช้ regex
 
 Summary:
 {source_summary}
