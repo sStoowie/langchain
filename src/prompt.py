@@ -58,15 +58,28 @@ GENERATE_TESTCODE_PROMPT = """
 เงื่อนไข:
 1. ส่งออก **เฉพาะโค้ด TypeScript เท่านั้น** (ไม่มี markdown wrapper)
 2. ใช้ selector ที่ตรงกับ class / id / aria-label ที่มีจริงใน source code
-3. **ทุกครั้งก่อน expect() ให้ใช้การรอเสมอ**
-   - ตรวจสอบข้อความ/visibility → `await locator.waitFor({ state: 'visible' })` แล้วค่อย `expect`
-   - ตรวจสอบปุ่ม disable/enable → ใช้ `await expect(locator).toBeDisabled({ timeout: 5000 })` หรือ `toBeEnabled({ timeout: 5000 })`
-4. error message (`<p class="text-red-400" role="alert">`) ต้องรอให้ render ก่อน → ใช้ `getByRole('alert')` + `waitFor`
-5. ปุ่ม submit → invalid case ต้องรอว่า **disabled** จริง, valid case ต้องรอว่า **enabled** จริงก่อนค่อยกด
-6. ใช้ `test.step()` ครอบ logic ของแต่ละขั้นตอน เพื่อ debug ง่ายขึ้น
-7. Form Coverage Rule: … (เหมือนเดิม)
+   - เช่น `#email`, `#password`, `p.text-red-400[role="alert"]`, `button[type="submit"]`
+   - ปุ่ม social login ใช้ `[aria-label="Sign in with Google"]` หากพบจริงใน source code เท่านั้น
+3. จำไว้ว่า error message (`<p class="text-red-400" role="alert">`) จะถูก render ก็ต่อเมื่อมี error →
+   - invalid case → `page.fill(invalid)` + `blur()`
+   - empty/space case → `page.fill(' ')` + `blur()`
+   - valid case → `page.fill(valid)` + `blur()` และ expect error message **ไม่ปรากฏ**
+4. ปุ่ม submit มี attribute `disabled={!isFormValid}` →
+   - invalid case → expect submit **disabled**
+   - valid case (ทุกฟิลด์ถูกต้อง) → expect submit **enabled** แล้วค่อย `click`
+5. ถ้า source code ไม่มี redirect หลัง login → ตรวจสอบว่า **console log** เกิดขึ้นแทน (ใช้ `page.on('console', ...)`)
+6. ห้าม hardcode text/เส้นทางที่ไม่มีใน source code (เช่น `/.*dashboard/`)
+7. ใช้ `expect(...).toBeVisible()` ตรวจสอบการมองเห็นก่อน `toContainText()` เพื่อกัน element ยังไม่ render
+8. ใช้ `test.step()` ครอบ logic ของแต่ละขั้นตอน เพื่อ debug ง่ายขึ้น
+9. **Form Coverage Rule**: ในทุก test ที่เกี่ยวกับแบบฟอร์ม ต้องกรอก **ทุกฟิลด์** ให้ครบทุกครั้ง
+   - จัดเคส “ผสมถูก/ผิดรายฟิลด์” เช่น:
+     - ฟอร์มว่างทั้งหมด
+     - อีเมลถูกต้อง + รหัสผ่านผิด regex
+     - อีเมลผิด + รหัสผ่านถูกต้อง
+     - ทุกฟิลด์ถูกต้องทั้งหมด
+   - หากมีฟิลด์อื่น (เช่น `username`, `confirmPassword`) และพบใน source code ต้องรวมในแต่ละเคสด้วย (กรอกให้ครบและกระตุ้น validation ด้วย `blur()`)
 
-ตัวอย่าง:
+ตัวอย่างรูปแบบโค้ดที่ถูกต้อง:
 import { test, expect } from '@playwright/test';
 
 const baseUrl = '{{base_url}}';
@@ -76,21 +89,53 @@ test.describe('Login Form', () => {
     await page.goto(baseUrl);
   });
 
+  test('แสดง error เมื่ออีเมลไม่ถูกต้อง (ขณะกรอกรหัสผ่านถูกต้อง)', async ({ page }) => {
+    await test.step('กรอกข้อมูลครบทุกฟิลด์แบบผสมถูก/ผิด', async () => {
+      await page.fill('#email', 'invalid-email');
+      await page.locator('#email').blur();
+      await page.fill('#password', 'Valid1@Password');
+      await page.locator('#password').blur();
+    });
+    const error = page.locator('p.text-red-400[role="alert"]');
+    await expect(error).toBeVisible();
+    await expect(error).toContainText('กรุณากรอกอีเมลให้ถูกต้อง');
+    await expect(page.locator('button[type="submit"]')).toBeDisabled();
+  });
+
   test('แสดง error เมื่อรหัสผ่านไม่ถูกต้อง (ขณะกรอกอีเมลถูกต้อง)', async ({ page }) => {
-    await test.step('กรอกอีเมลถูกต้อง + รหัสผ่านผิด', async () => {
+    await test.step('กรอกข้อมูลครบทุกฟิลด์แบบผสมถูก/ผิด', async () => {
       await page.fill('#email', 'test@example.com');
       await page.locator('#email').blur();
       await page.fill('#password', 'invalid');
       await page.locator('#password').blur();
     });
+    const error = page.locator('p.text-red-400[role="alert"]');
+    await expect(error).toBeVisible();
+    await expect(error).toContainText('รหัสผ่านไม่ผ่านข้อกำหนด');
+    await expect(page.locator('button[type="submit"]')).toBeDisabled();
+  });
 
-    const error = page.getByRole('alert');
-    await error.waitFor({ state: 'visible' });
-    await expect(error).toContainText('รหัสผ่านต้อง ≥ 8 ตัว มีตัวพิมพ์เล็ก/ใหญ่ ตัวเลข และอักขระพิเศษ');
-
+  test('ปุ่มเข้าสู่ระบบถูก disabled เมื่อฟอร์มว่างทั้งหมด', async ({ page }) => {
     const submitButton = page.locator('button[type="submit"]');
-    await expect(submitButton).toBeDisabled({ timeout: 5000 });
+    await expect(submitButton).toBeDisabled();
+  });
+
+  test('เข้าสู่ระบบสำเร็จเมื่อกรอกข้อมูลถูกต้องทั้งหมด', async ({ page }) => {
+    page.on('console', msg => {
+      if (msg.type() === 'log') {
+        console.log('Console Log:', msg.text());
+      }
+    });
+
+    await test.step('กรอกข้อมูลครบทุกฟิลด์และถูกต้อง', async () => {
+      await page.fill('#email', 'test@example.com');
+      await page.locator('#email').blur();
+      await page.fill('#password', 'Valid1@Password');
+      await page.locator('#password').blur();
+    });
+
+    await expect(page.locator('button[type="submit"]')).toBeEnabled();
+    await page.click('button[type="submit"]');
   });
 });
 """
-

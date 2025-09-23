@@ -6,6 +6,9 @@ export default defineConfig({
   reporter: 'dot',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:5173',
+    launchOptions: {
+      slowMo: 1000,
+    },
     headless: true,
     trace: 'off',
   },
@@ -13,3 +16,5 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
 });
+
+
