@@ -139,3 +139,63 @@ test.describe('Login Form', () => {
   });
 });
 """
+
+SUMMARIZE_RESULT_PROMPT = """
+คุณคือ QA Engineer.
+คุณจะได้รับผลการรัน Playwright test (stdout/stderr/returncode)
+
+สิ่งที่ต้องทำ:
+1. วิเคราะห์ว่า test ผ่านกี่ตัว ล้มเหลวกี่ตัว
+2. สรุปข้อผิดพลาดสำคัญ
+3. แนะนำแนวทางแก้ไขหรือ test case เพิ่มเติม
+
+**ตอบกลับเป็น MARKDOWN เท่านั้น** เช่น:
+
+**ผลการรัน Playwright Test**
+
+- **Total:** 11  
+- **Passed:** 7  
+- **Failed:** 4  
+
+---
+
+### 1) แสดงข้อความ error เมื่ออีเมลไม่ถูกต้อง (ขณะกรอกรหัสผ่านถูกต้อง)
+- **สิ่งที่ error:** `locator('p.text-red-400.text-sm[role="alert"]')` ไม่ถูกพบ → `toBeVisible()` ล้มเหลว  
+- **อธิบาย:** Selector ที่ใช้ไม่เจอ element ใน DOM หรือข้อความ error ไม่ถูก trigger  
+- **คำแนะนำแนวทางการแก้ไข:**  
+  - ตรวจสอบ class จริงของ error message ว่าตรงกับที่โค้ด render ไว้หรือไม่  
+  - อาจต้องกดปุ่ม `submit` เพื่อให้ validation ทำงานก่อนตรวจสอบ  
+  - เพิ่ม `await expect(error).toBeVisible({ timeout: ... })` พร้อมรอ state update  
+
+---
+
+### 2) แสดงข้อความ error เมื่อรหัสผ่านไม่ถูกต้อง (ขณะกรอกอีเมลถูกต้อง)
+- **สิ่งที่ error:** `locator('p.text-red-400.text-sm[role="alert"]')` ไม่ถูกพบ → `toBeVisible()` ล้มเหลว  
+- **อธิบาย:** เหมือนข้อ 1 แต่กรณี password → Validation อาจรันแค่ตอน submit  
+- **คำแนะนำแนวทางการแก้ไข:**  
+  - ตรวจสอบว่าการ validate password trigger ตอนไหน (onBlur / onSubmit)  
+  - ใช้ selector ที่ยืดหยุ่นขึ้น เช่น `role="alert"` โดยไม่ fix class  
+  - เพิ่ม test case สำหรับ password ว่างหรือ format ไม่ครบ  
+
+---
+
+### 3) แสดง/ซ่อนรหัสผ่านเมื่อกดปุ่ม Show/Hide password
+- **สิ่งที่ error:** หลังคลิก Show password → input `#password` ยังคง `type="password"` ไม่เปลี่ยนเป็น `text`  
+- **อธิบาย:** Toggle logic ไม่ทำงาน หรือ test คลิกปุ่มผิด element  
+- **คำแนะนำแนวทางการแก้ไข:**  
+  - ตรวจสอบว่า toggle button ใช้ selector อะไรแน่ ๆ (`aria-label` / `data-testid`)  
+  - ใส่ `await` หลังคลิกเพื่อรอ DOM update  
+  - เพิ่ม test case ตรวจสอบ Hide → กลับไปเป็น `type="password"`  
+
+---
+
+### 4) เปลี่ยนสไลด์เมื่อคลิกปุ่ม Go to slide
+- **สิ่งที่ error:** คาดหวัง `"Discover Beauty,"` แต่เจอ `"Capturing Moments, Creating Memories"`  
+- **อธิบาย:** Slide index ไม่เปลี่ยน หรือ animation ยังไม่เสร็จตอนตรวจสอบ  
+- **คำแนะนำแนวทางการแก้ไข:**  
+  - ตรวจสอบว่า test กดปุ่ม Go to slide index ตรงกับ data จริงหรือไม่  
+  - เพิ่ม `await page.waitForTimeout(...)` เพื่อรอ transition  
+  - เพิ่ม assertion ตรวจสอบทั้ง title และ subtitle ให้ครบ  
+
+---
+"""
